@@ -8,8 +8,8 @@ https://github.com/yangshun/2048-python
 This is customized for playing M5Stack!  
 You can use "M5Stack-SD-Updater". so that, you could install .bin,.json,.jpeg files to your SD Card.  
 
-https://github.com/tobozo/M5Stack-SD-Updater
-https://github.com/lovyan03/M5Stack_LovyanLauncher
+https://github.com/tobozo/M5Stack-SD-Updater  
+https://github.com/lovyan03/M5Stack_LovyanLauncher  
 
 
 ## BUILD Info  
