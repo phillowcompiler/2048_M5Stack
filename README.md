@@ -12,10 +12,12 @@ https://github.com/tobozo/M5Stack-SD-Updater
 https://github.com/lovyan03/M5Stack_LovyanLauncher
 
 
-<BUILD>  
+##BUILD Info  
+<pre>
 PlatformIO  
 lib_deps =  
   # Using a library name  
   M5Stack  
   M5Stack-SD-Updater  
+</pre>
 
