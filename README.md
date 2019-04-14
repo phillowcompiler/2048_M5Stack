@@ -12,7 +12,7 @@ https://github.com/tobozo/M5Stack-SD-Updater
 https://github.com/lovyan03/M5Stack_LovyanLauncher
 
 
-##BUILD Info  
+## BUILD Info  
 <pre>
 PlatformIO  
 lib_deps =  
