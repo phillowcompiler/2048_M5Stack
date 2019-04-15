@@ -7,7 +7,7 @@ https://github.com/yangshun/2048-python
 
 This is customized for playing M5Stack!  
 
-Using MPU9230 sensor,you should hold your M5Stack horizontally with the ground :)  
+Using MPU9250 sensor,you should hold your M5Stack horizontally with the ground :)  
 
 Playing Movie:  
 https://youtu.be/ccEq0s7dU84  
