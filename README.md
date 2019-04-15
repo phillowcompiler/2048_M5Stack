@@ -7,7 +7,10 @@ https://github.com/yangshun/2048-python
 
 This is customized for playing M5Stack!  
 
-Using MPU9230 sensor,you should hold your M5Stack horizontally with the ground :)
+Using MPU9230 sensor,you should hold your M5Stack horizontally with the ground :)  
+
+Playing Movie:  
+https://youtu.be/ccEq0s7dU84  
 
 You can use "M5Stack-SD-Updater". so that, you could install .bin,.json,.jpeg files to your SD Card.  
 
@@ -27,7 +30,7 @@ lib_deps =
 ## history
 20190415  
 Marged with tobozo's pull request(SD_Updater std.layout)  
-Using MPU9230
+Using MPU9230  
 animation arrow
           
 20190414  
