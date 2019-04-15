@@ -494,6 +494,8 @@ void loop() {
   while(!M5.BtnB.wasPressed()){
       M5.update();  
   }
+  
+  gamegyro->~cls_gyro();
   gamebrd->~cls_gamebrd();
 }
 
