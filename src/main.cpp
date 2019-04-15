@@ -1,5 +1,11 @@
+//
+//  M5Stack_2048game
+//  https://github.com/phillowcompiler/2048_M5Stack  
+//
 #include <M5Stack.h>
 #include "M5StackUpdater.h"
+#include "utility/MPU9250.h"
+#include "utility/quaternionFilters.h"
 
 const int CENTERX = 320/2;
 const int CENTERY = 230/2;
@@ -24,11 +30,14 @@ typedef struct{
     u_char mat[MATDTN];
 }T_ARROW; 
 const u_char ARROWPATTERN[][MATDTN] = {
-    {8,0x1c,0x2a,0x49,8,8,8}, /* TOP */
-    {8,8,8,0x49,0x2a,0x1c,8}, /* DOWN */
-    {8,4,2,0x7f,2,4,8},       /* LEFT */
-    {8,0x10,0x20,0x7f,0x20,0x10,8} /* RIGHT */
+    {8,0x1c,0x2a,0x49,8,8,0}, /* TOP */
+    {0,8,8,0x49,0x2a,0x1c,8}, /* DOWN */
+    {8,4,2,0x3f,2,4,8},       /* LEFT */
+    {8,0x10,0x20,0x7e,0x20,0x10,8} /* RIGHT */
 };
+
+//MPU9250
+MPU9250 IMU;
 
 //
 // game board class
@@ -46,7 +55,8 @@ private:
   //Arrow
   int m_dirArrow;
   T_ARROW m_arrowMatrix[4]; 
-  
+  unsigned long m_anmArrowTime;     // for animation Arrow.
+
 public:
   cls_gamebrd();
   void drawInitBoard();
@@ -59,7 +69,9 @@ public:
   void move(int);
   void dispArrow(int, int);
   void changeArrow(int);
+  void setArrow(int);
   int getDir(void){return this->m_dirArrow;}
+  void animationArrow(void);
   void gameEnd(int);
 };
 
@@ -127,6 +139,7 @@ void cls_gamebrd::drawPanel(int i){
 int cls_gamebrd::appendTwo(void){
   int lst[PANELN];
   int count = 0;
+
   for(int i = 0; i < PANELN; i++){
     if(this->m_panel[i] > 10){
       return (i + GAMEWIN);   /* GAMEWIN */
@@ -250,8 +263,9 @@ void cls_gamebrd::dispArrow(int d, int sts){
     for(i = 0; i < MATDTN; i++){
       pArrowMatrix->mat[i] = ARROWPATTERN[d][i];
     }
+    this->m_anmArrowTime = 0;
   }
-
+    
   for(y = 0; y < MATDTN; y++){
     c = 1;
     for(x = 0; x < MATDTN; x++){
@@ -272,7 +286,63 @@ void cls_gamebrd::changeArrow(int d){
     if(this->m_dirArrow > 1){this->m_dirArrow ^= 1;}else{this->m_dirArrow+=2;}
   }
  this->dispArrow(this->m_dirArrow, 1);
+ this->m_anmArrowTime = millis();
 }
+
+void cls_gamebrd::setArrow(int d){
+  // d = direction
+  this->dispArrow(this->m_dirArrow,0);
+  this->m_dirArrow = d; 
+  this->dispArrow(this->m_dirArrow, 1);
+  this->m_anmArrowTime = millis();
+}
+
+void cls_gamebrd::animationArrow(void){
+    if( millis() - this->m_anmArrowTime < 250 ){return;}
+    
+    T_ARROW * pArrowMatrix = &(this->m_arrowMatrix[this->m_dirArrow]);
+    u_char newpattern[MATDTN];    
+    u_char c;    
+    int i;
+
+    for(i = 0; i<MATDTN; i++){newpattern[i] = pArrowMatrix->mat[i];}
+    
+    switch(this->m_dirArrow){
+    case 0:
+        c = newpattern[0];
+        for(i = 0; i< MATDTN-1; i++){newpattern[i] = newpattern[i+1];}
+        newpattern[MATDTN-1] = c;
+        break;
+
+    case 1:
+        c = newpattern[MATDTN-1];
+        for(i = 0; i< MATDTN-1; i++){newpattern[MATDTN-i-1] = newpattern[MATDTN-i-2];}
+        newpattern[0] = c;
+        break;
+
+    case 2:
+        for(i = 0; i< MATDTN; i++){
+            c = newpattern[i];
+            newpattern[i] &= 0xFE;
+            newpattern[i]>>= 1;
+            if( c & 1 ){newpattern[i]|=0x80;}
+        }
+        break;
+    
+    case 3:
+        for(i = 0; i< MATDTN; i++){
+            c = newpattern[i];
+            newpattern[i] &= 0x7f;
+            newpattern[i]<<= 1;
+            if( c & 0x80 ){newpattern[i]|=1;}
+        }
+        break;
+    }
+    for(i=0; i<MATDTN; i++){pArrowMatrix->mat[i]=newpattern[i];}
+    this->dispArrow(this->m_dirArrow, 1);
+    this->m_anmArrowTime = millis();
+}
+
 
 void cls_gamebrd::gameEnd(int sts){
   int i,y = 10;
@@ -303,6 +373,66 @@ void cls_gamebrd::gameEnd(int sts){
   M5.Lcd.drawCentreString("New Game -> Press[Centre]Button.", 160, 180, 2);
 }
 
+
+//
+// class gyro
+//
+class cls_gyro{
+private:
+  unsigned long m_baset;
+  int m_dispdir;
+  int m_nowdir;
+  int m_neutral;
+public:
+  cls_gyro();
+  int senseGyro();
+};
+
+cls_gyro::cls_gyro(){
+  this->m_baset = 0;
+  this->m_dispdir = 0;
+  this->m_nowdir = 0;
+  this->m_neutral = true;
+}
+
+int cls_gyro::senseGyro(void){
+  int dir = 0;   /* Neutral */
+  int ax,ay;
+  if (IMU.readByte(MPU9250_ADDRESS, INT_STATUS) & 0x01)
+  {
+    IMU.readAccelData(IMU.accelCount);  // Read the x/y/z adc values
+    IMU.getAres();
+
+    // Now we'll calculate the accleration value into actual g's
+    // This depends on scale being set
+    IMU.ax = (float)IMU.accelCount[0]*IMU.aRes; // - accelBias[0];
+    IMU.ay = (float)IMU.accelCount[1]*IMU.aRes; // - accelBias[1];
+    //IMU.az = (float)IMU.accelCount[2]*IMU.aRes; // - accelBias[2];
+  }
+  IMU.updateTime();
+  
+  ax = (int)(1000* IMU.ax);
+  ay = (int)(1000* IMU.ay);
+
+  if(ay < -400){dir = 1;}
+  else if(ay > 800){dir = 2;}
+  else if(ax > 400){dir = 3;}
+  else if(ax < -400){dir = 4;}
+
+  unsigned long now = millis();
+  
+  if( dir == this->m_nowdir ){
+    if( now - this->m_baset > 180 ){
+        this->m_dispdir = this->m_nowdir;
+    }
+  }else{
+    this->m_nowdir = dir;
+    this->m_baset = now;   
+  }
+
+  return this->m_dispdir;
+}
+
 //
 //  Main with supported 'SD_Updater' 
 //
@@ -315,20 +445,36 @@ void setup() {
     updateFromFS(SD);
     ESP.restart();
   }
+
+  IMU.initMPU9250();
 }
 
 //
 // Main loop
 //
+
+
+
 void loop() {
   int gamests = 0;
+  int gyrosts = 0;
+
   cls_gamebrd * gamebrd = new cls_gamebrd;
-  
+  cls_gyro * gamegyro = new cls_gyro;
+
   gamebrd->drawInitBoard();
   gamebrd->appendTwo();
   gamebrd->appendTwo();
 
   while(!gamests){
+    gyrosts = gamegyro->senseGyro();
+    if(gyrosts){
+      gyrosts--;
+      if(gamebrd->getDir() != gyrosts){
+        gamebrd->setArrow(gyrosts);
+      }
+    }
+
     if(M5.BtnA.wasPressed()){
         gamebrd->changeArrow(1);
     }
@@ -339,6 +485,7 @@ void loop() {
         gamebrd->move(gamebrd->getDir());
         gamests = gamebrd->appendTwo();    
     }
+    gamebrd->animationArrow();
     M5.update();
   }
 
